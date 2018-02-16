@@ -71,13 +71,14 @@ def readPriPackage(appXPackage, resourceText):
 	SHLWAPIDLL = ctypes.WinDLL("C:\\Windows\\System32\\shlwapi.dll")
 	BufferLength = 500
 	print(resourceText)
-	inputBuffer = ctypes.create_string_buffer(bytes('@{' + appXPackage.installLocation + '\\resources.pri? ' + resourceText + '}','utf-8'), BufferLength)
+	inputBuffer = ctypes.create_string_buffer(
+		bytes('@{' + appXPackage.installLocation + '\\resources.pri? ' + resourceText + '}',encoding='ascii'), BufferLength)
 	inputPointer = ctypes.pointer(inputBuffer)
 	outputBuffer = ctypes.create_string_buffer(BufferLength)
 	outputPointer = ctypes.pointer(outputBuffer)
 	H_Status = SHLWAPIDLL.SHLoadIndirectString(inputPointer,outputPointer,ctypes.c_int(BufferLength) ,0)
 	if H_Status == 0:
-		result = ''.join([s.decode("utf-8") for s in outputPointer.contents if s != b'\x00'])
+		result = ''.join([s.decode(encoding='ascii') for s in outputPointer.contents if s != b'\x00'])
 		return(result)
 
 rawPackages = getAppXPackagesRaw().split("\r\n\r\n")
