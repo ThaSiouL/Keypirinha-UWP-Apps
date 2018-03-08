@@ -37,7 +37,7 @@ class AppXPackage:
 		self.name = ''
 		#print(self.installLocation)
 		readPackageManifest(self)
-		print(format(self.displayName) +'\r\n')
+		print(format(self.displayName))
 
 def getAppXPackagesRaw():
 	try:
@@ -59,7 +59,6 @@ def readPackageManifest(appXPackage):
 	tree = ET.parse(appXPackage.installLocation + manifestPath)
 	root = tree.getroot()
 	namespace = getNamespace(root.tag)
-	print('new Line: ' + root.tag+ ' ' + appXPackage.installLocation)
 	appXPackage.name = root.find('./' + namespace +'Identity').get('Name')
 	for tag in root.findall('./' + namespace + 'Properties/' + namespace + 'DisplayName'):
 		appXPackage.displayName = formatResourceText(appXPackage, tag.text)
@@ -82,7 +81,6 @@ def formatResourceText(appXPackage,resourceText):
 
 def readPriPackage(appXPackage, resourceText):
 	BufferLength = 500
-	print(resourceText)
 	inputBuffer = ctypes.create_unicode_buffer(
 		resourceText, BufferLength)
 	inputPointer = ctypes.pointer(inputBuffer)
