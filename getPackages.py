@@ -2,6 +2,7 @@ import ctypes
 import os
 import subprocess
 import xml.etree.cElementTree as ET
+import timeit
 
 
 """
@@ -11,13 +12,15 @@ The CMDlet Get-AppXPackage is called and the output is used
 DLL Call:
 https://msdn.microsoft.com/en-us/library/windows/desktop/bb759919(v=vs.85).aspx
 HRESULT SHLoadIndirectString(
-  _In_       PCWSTR pszSource, #Input example: @{Microsoft.Camera_6.2.8376.0_x64__8wekyb3d8bbwe? ms-resource://Microsoft.Camera/resources/manifestAppDescription}
-  _Out_      PWSTR  pszOutBuf, #Emtpy Pointer Filled during excecution
-  _In_       UINT   cchOutBuf, #lengh of Pointer.
+  _In_	   PCWSTR pszSource, #Input example: @{Microsoft.Camera_6.2.8376.0_x64__8wekyb3d8bbwe? ms-resource://Microsoft.Camera/resources/manifestAppDescription}
+  _Out_	  PWSTR  pszOutBuf, #Emtpy Pointer Filled during excecution
+  _In_	   UINT   cchOutBuf, #lengh of Pointer.
   _Reserved_ void   **ppvReserved #Reserved, currently null
 ); # Should return 0 (H_OK Signal)
 """
 
+H_OK = 0
+SHLWAPIDLL = ctypes.WinDLL("shlwapi.dll")
 
 
 class AppXPackage:
@@ -34,7 +37,7 @@ class AppXPackage:
 		self.name = ''
 		#print(self.installLocation)
 		readPackageManifest(self)
-		print(self.displayName +'\r\n')
+		print(format(self.displayName) +'\r\n')
 
 def getAppXPackagesRaw():
 	try:
@@ -42,7 +45,7 @@ def getAppXPackagesRaw():
 										, shell=True)
 		return output.decode('UTF-8')
 	except subprocess.CalledProcessError as err:
-		print("subproces CalledProcessError.output = " + err.output)
+		print("subproces CalledProcessError.output = " + err.output.decode(encoding='utf-8'))
 
 def readPackageManifest(appXPackage):
 	manifestPath = '\\AppxManifest.xml'
@@ -63,23 +66,36 @@ def readPackageManifest(appXPackage):
 
 def formatResourceText(appXPackage,resourceText):
 	if resourceText[0:12] == 'ms-resource:':
-		return(readPriPackage(appXPackage ,resourceText[0:12]+'//'+ appXPackage.name +'/resources/'+resourceText[12:]))
+		prefix = resourceText[0:12]
+		key = resourceText[12:]
+		if key[0:2] == "//":
+			parsed = prefix + key
+		elif key[0:1] == "/":
+			parsed = prefix + "//" + key
+		elif key.find('/') != -1:
+			parsed = prefix + "/" + key
+		else:
+			parsed = prefix + "///resources/" + key
+		return(readPriPackage(appXPackage ,'@{{{}\\resources.pri? {}}}'.format(appXPackage.installLocation,parsed)))
 	else:
 		return(resourceText)
 
 def readPriPackage(appXPackage, resourceText):
-	SHLWAPIDLL = ctypes.WinDLL("C:\\Windows\\System32\\shlwapi.dll")
 	BufferLength = 500
 	print(resourceText)
-	inputBuffer = ctypes.create_string_buffer(
-		bytes('@{' + appXPackage.installLocation + '\\resources.pri? ' + resourceText + '}',encoding='ascii'), BufferLength)
+	inputBuffer = ctypes.create_unicode_buffer(
+		resourceText, BufferLength)
 	inputPointer = ctypes.pointer(inputBuffer)
-	outputBuffer = ctypes.create_string_buffer(BufferLength)
+	outputBuffer = ctypes.create_unicode_buffer(BufferLength)
 	outputPointer = ctypes.pointer(outputBuffer)
 	H_Status = SHLWAPIDLL.SHLoadIndirectString(inputPointer,outputPointer,ctypes.c_int(BufferLength) ,0)
-	if H_Status == 0:
-		result = ''.join([s.decode(encoding='ascii') for s in outputPointer.contents if s != b'\x00'])
+	if H_Status == H_OK:
+		result = outputBuffer.value
 		return(result)
+	#TODO: Handle Errors
+
+def getPicture(appXpackage):
+	pass
 
 rawPackages = getAppXPackagesRaw().split("\r\n\r\n")
 appXPackages = []
